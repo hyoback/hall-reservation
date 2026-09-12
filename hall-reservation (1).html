@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mu:tudio 홀 대관 예약</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://js.tosspayments.com/v1/payment"></script>
+<style>
+  :root{
+    --bg: #0F1D14;
+    --panel: #17281B;
+    --panel-2: #1D3122;
+    --line: rgba(243,241,233,0.12);
+    --line-strong: rgba(243,241,233,0.22);
+    --paper: #F3F1E9;
+    --paper-dim: rgba(243,241,233,0.62);
+    --paper-faint: rgba(243,241,233,0.38);
+    --brand: #2E5D3B;
+    --brand-light: #4C8A5D;
+    --gold: #CDA632;
+    --gold-soft: rgba(205,166,50,0.14);
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--paper);font-family:'Noto Sans KR',sans-serif;}
+  .wrap{max-width:1040px;margin:0 auto;padding:56px 24px 120px;}
+
+  .brand{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:44px;flex-wrap:wrap;gap:12px;}
+  .brand-mark{font-size:15px;letter-spacing:0.02em;color:var(--gold);font-weight:600;}
+  .brand-sub{font-size:13px;color:var(--paper-faint);}
+
+  h1{font-family:'Black Han Sans',sans-serif;font-weight:400;font-size:clamp(32px,5vw,48px);line-height:1.15;margin:0 0 10px;letter-spacing:0.01em;}
+  .lede{color:var(--paper-dim);font-size:15.5px;line-height:1.7;max-width:520px;margin:0 0 8px;}
+  .lede:last-of-type{margin-bottom:56px;}
+
+  .layout{display:grid;grid-template-columns:1fr 320px;gap:32px;align-items:start;}
+  @media (max-width:860px){.layout{grid-template-columns:1fr;}}
+
+  .step{margin-bottom:48px;}
+  .step-head{display:flex;align-items:baseline;gap:12px;margin-bottom:18px;}
+  .step-num{font-family:'Black Han Sans',sans-serif;font-size:20px;color:var(--gold);min-width:28px;}
+  .step-title{font-size:19px;font-weight:700;}
+  .step-desc{font-size:13.5px;color:var(--paper-faint);margin:2px 0 0 40px;}
+
+  .grid{display:grid;gap:12px;margin-left:40px;}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .grid.cols-2{grid-template-columns:repeat(2,1fr);}
+  @media (max-width:640px){.grid.cols-3,.grid.cols-2{grid-template-columns:1fr;}}
+
+  .opt{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;cursor:pointer;transition:border-color .15s ease, background .15s ease;
+    display:flex;flex-direction:column;gap:4px;
+  }
+  .opt:hover{border-color:var(--line-strong);}
+  .opt.active{border-color:var(--gold);background:var(--panel-2);box-shadow:0 0 0 1px var(--gold) inset;}
+  .opt-title{font-weight:700;font-size:15px;}
+  .opt-sub{font-size:12.5px;color:var(--paper-dim);}
+  .opt-duration{font-size:14px;font-weight:700;color:var(--paper);margin-top:2px;}
+  .opt-time{font-size:12.5px;color:var(--paper-dim);}
+  .opt-price{font-size:13px;color:var(--gold);font-weight:600;margin-top:2px;}
+
+  .row{display:flex;align-items:center;gap:14px;margin-left:40px;flex-wrap:wrap;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field label{font-size:12px;color:var(--paper-faint);}
+  select, input[type=date], input[type=text], input[type=tel]{
+    background:var(--panel);border:1px solid var(--line);color:var(--paper);
+    padding:10px 12px;border-radius:10px;font-family:inherit;font-size:14px;min-width:150px;
+  }
+  select:focus, input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .bank-box{
+    margin-left:40px;margin-top:14px;background:var(--panel-2);border:1px solid var(--gold);border-radius:var(--radius);
+    padding:14px 18px;font-size:13.5px;color:var(--paper-dim);line-height:1.7;display:none;
+  }
+  .bank-box.show{display:block;}
+  .bank-box b{color:var(--gold);}
+
+  .fixed-note{
+    margin-left:40px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 18px;font-size:14px;color:var(--paper-dim);display:inline-flex;gap:10px;align-items:center;
+  }
+  .fixed-note b{color:var(--paper);}
+
+  .hour-grid{margin-left:40px;display:flex;flex-wrap:wrap;gap:8px;}
+  .hour-btn{
+    padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+    color:var(--paper);font-size:13px;cursor:pointer;font-family:inherit;min-width:64px;text-align:center;
+    transition:border-color .12s ease, background .12s ease;
+  }
+  .hour-btn:hover:not(:disabled){border-color:var(--line-strong);}
+  .hour-btn.selected{background:var(--gold);color:#17281B;border-color:var(--gold);font-weight:700;}
+  .hour-btn.reserved{background:transparent;color:var(--paper-faint);border-color:var(--line);cursor:not-allowed;text-decoration:line-through;opacity:.55;}
+  .hour-btn.full{min-width:220px;}
+
+  .counter{margin-left:40px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+  .counter-box{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:999px;overflow:hidden;}
+  .counter-box button{
+    width:42px;height:42px;background:var(--panel);border:none;color:var(--paper);font-size:18px;cursor:pointer;
+  }
+  .counter-box button:hover{background:var(--panel-2);}
+  .counter-box button:disabled{opacity:.35;cursor:not-allowed;}
+  .counter-val-input{
+    width:56px;text-align:center;font-size:16px;font-weight:700;background:transparent;
+    border:none;color:var(--paper);font-family:inherit;
+  }
+  .counter-val-input:focus{outline:none;}
+  .counter-val-input::-webkit-inner-spin-button,.counter-val-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  .counter-val-input{-moz-appearance:textfield;}
+  .counter-info{font-size:13px;color:var(--paper-faint);}
+  .counter-info b{color:var(--gold);}
+
+  .checkrow{
+    margin-left:40px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;
+  }
+  .checkrow input{width:18px;height:18px;accent-color:var(--gold);}
+  .checkrow .t{font-weight:700;font-size:14.5px;}
+  .checkrow .p{margin-left:auto;color:var(--gold);font-weight:600;font-size:14px;}
+  .amenity-note{margin-left:40px;margin-top:10px;font-size:13px;color:var(--paper-faint);}
+
+  .info-box{
+    margin-left:40px;background:linear-gradient(135deg, var(--gold-soft), transparent);
+    border:1px solid var(--line-strong);border-radius:var(--radius);padding:18px 20px;
+  }
+  .info-box .t{font-weight:700;font-size:14.5px;margin-bottom:6px;}
+  .info-box .d{font-size:13.5px;color:var(--paper-dim);line-height:1.6;}
+
+  .pay-grid{margin-left:40px;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:640px){.pay-grid{grid-template-columns:1fr;}}
+
+  .summary{
+    position:sticky;top:24px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:24px;
+  }
+  .summary h2{font-size:14px;letter-spacing:0.02em;color:var(--paper-faint);margin:0 0 18px;font-weight:600;}
+  .sum-line{display:flex;justify-content:space-between;font-size:13.5px;color:var(--paper-dim);padding:7px 0;border-bottom:1px dashed var(--line);}
+  .sum-line b{color:var(--paper);font-weight:600;}
+  .sum-total{display:flex;justify-content:space-between;align-items:baseline;margin-top:16px;padding-top:16px;border-top:1px solid var(--line-strong);}
+  .sum-total .l{font-size:13px;color:var(--paper-faint);}
+  .sum-total .v{font-family:'Black Han Sans',sans-serif;font-size:26px;color:var(--gold);}
+  .cta{
+    width:100%;margin-top:20px;padding:15px;border:none;border-radius:10px;
+    background:var(--gold);color:#17281B;font-weight:700;font-size:15px;cursor:pointer;
+    font-family:inherit;transition:filter .15s ease;
+  }
+  .cta:hover{filter:brightness(1.08);}
+  .cta:disabled{opacity:.4;cursor:not-allowed;}
+  .confirm{display:none;margin-top:14px;font-size:12.5px;color:var(--paper-dim);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;line-height:1.6;}
+  .confirm.show{display:block;}
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(6,12,8,0.72);z-index:999;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:var(--panel);border:1px solid var(--gold);border-radius:16px;padding:32px 26px 26px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);}
+  .modal-icon{font-size:38px;margin-bottom:10px;}
+  .modal-title{font-size:19px;font-weight:700;margin-bottom:14px;color:var(--paper);}
+  .modal-body{font-size:13.5px;color:var(--paper-dim);line-height:1.75;text-align:left;background:var(--panel-2);border-radius:10px;padding:14px 16px;margin-bottom:20px;}
+  .modal-body b{color:var(--gold);}
+  .modal-close{width:100%;padding:13px;border:none;border-radius:10px;background:var(--gold);color:#17281B;font-weight:700;font-size:14.5px;cursor:pointer;font-family:inherit;}
+  .modal-close:hover{filter:brightness(1.08);}
+
+  .dawn-cal{margin-left:40px;margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;max-width:340px;}
+  .dawn-cal-head{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px;font-size:14px;font-weight:700;}
+  .cal-nav-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--paper);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:15px;line-height:1;}
+  .cal-nav-btn:hover{border-color:var(--line-strong);}
+  .dawn-cal-legend{display:flex;align-items:center;font-size:11.5px;color:var(--paper-dim);margin-bottom:10px;}
+  .dawn-cal-legend .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
+  .dawn-cal-legend .dot.ok{background:#5FA876;}
+  .dawn-cal-legend .dot.full{background:#C0555A;}
+  .dawn-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-weekday{font-size:10.5px;color:var(--paper-faint);text-align:center;padding-bottom:2px;}
+  .cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:12.5px;cursor:default;border:1px solid transparent;}
+  .cal-cell.pad{visibility:hidden;}
+  .cal-cell.past{color:var(--paper-faint);opacity:.35;}
+  .cal-cell.ok{background:rgba(95,168,118,0.16);color:#8FCBA3;cursor:pointer;}
+  .cal-cell.ok:hover{border-color:#5FA876;}
+  .cal-cell.full{background:rgba(192,85,90,0.14);color:#D98A8D;text-decoration:line-through;}
+  .cal-cell.selected{background:var(--gold);color:#17281B;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="brand-mark">mu:tudio</div>
+    <div class="brand-sub">홀 대관 예약</div>
+  </div>
+
+  <h1>Hall Rental Guide</h1>
+  <p class="lede">시간대와 홀을 고르고, 인원과 옵션을 더하면 금액이 바로 계산돼요.</p>
+  <p class="lede">마지막에 결제 수단을 선택하시면 예약 요청이 완료됩니다.</p>
+
+  <div class="layout">
+    <div>
+
+      <!-- STEP 1: 시간대 -->
+      <div class="step">
+        <div class="step-head"><span class="step-num">01</span><span class="step-title">시간대 선택</span></div>
+        <p class="step-desc">시간대에 따라 요금 방식이 달라요.</p>
+        <div class="grid cols-3" id="slotGrid">
+          <div class="opt" data-slot="dawn">
+            <div class="opt-title">새벽 대관 (통대관)</div>
+            <div class="opt-duration">대관 시간 7시간</div>
+            <div class="opt-time">밤 11시 ~ 오전 6시</div>
+            <div class="opt-price">A홀 180,000원<br>B홀 30,000원</div>
+          </div>
+          <div class="opt" data-slot="weekday">
+            <div class="opt-title">평일 낮 대관</div>
+            <div class="opt-duration">시간당 대관</div>
+            <div class="opt-time">오전 6시 ~ 오후 5시</div>
+            <div class="opt-price">A홀 30,000원/h<br>B홀 10,000원/h</div>
+          </div>
+          <div class="opt" data-slot="weekend">
+            <div class="opt-title">주말 낮 대관</div>
+            <div class="opt-duration">시간당 대관</div>
+            <div class="opt-time">토·일 오전 6시 ~ 오후 4시</div>
+            <div class="opt-price">A홀 30,000원/h<br>B홀 10,000원/h</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: 홀 -->
+      <div class="step">
+        <div class="step-head"><span class="step-num">02</span><span class="step-title">홀 선택</span></div>
+        <p class="step-desc">A홀 (40평) · B홀 (16평)</p>
+        <div class="grid cols-2" id="hallGrid"></div>
+      </div>
+
+      <!-- STEP 3: 날짜/시간 -->
+      <div class="step">
+        <div class="step-head"><span class="step-num">03</span><span class="step-title">이용 날짜 · 시간</span></div>
+        <div class="row" style="margin-bottom:12px;">
+          <div class="field">
+            <label for="dateInput">날짜</label>
+            <input type="date" id="dateInput">
+          </div>
+        </div>
+        <div class="dawn-cal" id="dawnCalWrap" style="display:none;">
+          <div class="dawn-cal-head">
+            <button type="button" class="cal-nav-btn" id="calPrevBtn">‹</button>
+            <span id="calMonthLabel"></span>
+            <button type="button" class="cal-nav-btn" id="calNextBtn">›</button>
+          </div>
+          <div class="dawn-cal-legend"><span class="dot ok"></span>예약 가능<span class="dot full" style="margin-left:12px;"></span>마감</div>
+          <div class="dawn-cal-grid" id="calGrid"></div>
+        </div>
+        <p class="step-desc" id="hourGridDesc" style="margin:0 0 10px 40px;">먼저 시간대와 홀을 선택해 주세요.</p>
+        <div class="hour-grid" id="hourGrid"></div>
+        <div class="counter-info" id="hourSelInfo" style="margin-left:40px;margin-top:8px;"></div>
+      </div>
+
+      <!-- STEP 4: 인원 -->
+      <div class="step">
+        <div class="step-head"><span class="step-num">04</span><span class="step-title">인원</span></div>
+        <p class="step-desc" id="peopleDesc">먼저 홀을 선택해 주세요.</p>
+        <div class="counter">
+          <div class="counter-box">
+            <button id="peopleMinus" type="button">−</button>
+            <input type="number" id="peopleVal" class="counter-val-input" inputmode="numeric" value="0">
+            <button id="peoplePlus" type="button">+</button>
+          </div>
+          <div class="counter-info" id="peopleInfo"></div>
+        </div>
+      </div>
+
+      <!-- STEP 5: 추가 옵션 -->
+      <div class="step">
+        <div class="step-head"><span class="step-num">05</span><span class="step-title">추가 옵션</span></div>
+        <label class="checkrow">
+          <input type="checkbox" id="lightOpt">
+          <span class="t">조명 렌트</span>
+          <span class="p">+50,000원</span>
+        </label>
+        <p class="amenity-note">요가 매트 15개는 기본으로 구비되어 있어 별도 비용 없이 이용하실 수 있어요.</p>
+      </div>
+
+      <!-- 장기 대관 안내 -->
+      <div class="step">
+        <div class="info-box">
+          <div class="t">Team 장기(정기) 대관 안내</div>
+          <div class="d">정기적으로 같은 시간에 연습실을 쓰신다면 할인 요금을 안내해 드려요.<br>문의 남겨 주시면 확인 후 연락드릴게요.</div>
+          <div class="d" style="margin-top:10px;font-weight:700;color:var(--paper);">문의 010-3003-1562</div>
+        </div>
+      </div>
+
+      <!-- STEP 6: 예약자 정보 -->
+      <div class="step">
+        <div class="step-head"><span class="step-num">06</span><span class="step-title">예약자 정보</span></div>
+        <div class="row">
+          <div class="field">
+            <label for="nameInput">이름</label>
+            <input type="text" id="nameInput" placeholder="예약자 이름">
+          </div>
+          <div class="field">
+            <label for="phoneInput">연락처</label>
+            <input type="tel" id="phoneInput" placeholder="010-0000-0000">
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 7: 결제수단 -->
+      <div class="step">
+        <div class="step-head"><span class="step-num">07</span><span class="step-title">결제 수단</span></div>
+        <div class="pay-grid" id="payGrid">
+          <div class="opt" data-pay="transfer">
+            <div class="opt-title">계좌 입금</div>
+            <div class="opt-sub">안내되는 계좌로 무통장 입금</div>
+          </div>
+          <div class="opt" data-pay="card" style="opacity:.4;cursor:not-allowed;">
+            <div class="opt-title">카드 결제</div>
+            <div class="opt-sub">준비 중이에요 (곧 열릴 예정)</div>
+          </div>
+        </div>
+        <div class="bank-box" id="bankBox">
+          입금 계좌: <b id="bankInfoText">국민은행 010-9906-8186 (예금주: 신효백)</b><br>
+          예약 신청 후 안내되는 금액을 입금해 주시면 확인 후 예약이 확정돼요.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 요약 패널 -->
+    <div class="summary">
+      <h2>예약 요약</h2>
+      <div class="sum-line"><span>시간대</span><b id="sumSlot">-</b></div>
+      <div class="sum-line"><span>홀</span><b id="sumHall">-</b></div>
+      <div class="sum-line"><span>이용 시간</span><b id="sumTime">-</b></div>
+      <div class="sum-line"><span>인원</span><b id="sumPeople">-</b></div>
+      <div class="sum-line"><span>기본 대관료</span><b id="sumBase">-</b></div>
+      <div class="sum-line"><span>인원 추가요금</span><b id="sumExtraPeople">-</b></div>
+      <div class="sum-line"><span>옵션</span><b id="sumOptions">-</b></div>
+      <div class="sum-line"><span>결제 수단</span><b id="sumPay">-</b></div>
+      <div class="sum-total">
+        <span class="l">총 금액</span>
+        <span class="v" id="sumTotal">0원</span>
+      </div>
+      <button class="cta" id="ctaBtn" disabled>예약 신청하기</button>
+      <div class="confirm" id="confirmBox"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="resultModal">
+  <div class="modal-box">
+    <div class="modal-icon" id="modalIcon">✅</div>
+    <div class="modal-title" id="modalTitle">예약이 접수됐어요</div>
+    <div class="modal-body" id="modalBody"></div>
+    <button class="modal-close" id="modalCloseBtn" type="button">확인</button>
+  </div>
+</div>
+
+<script>
+// ── Firebase 설정 — Firebase 콘솔에서 새 프로젝트 만든 뒤 실제 값으로 교체하세요 ──
+const firebaseConfig = {
+  apiKey: "AIzaSyCnuvL3OorJU-2zLsC0E0WpPS5yswjy7WE",
+  authDomain: "mutudio-hall-lent.firebaseapp.com",
+  projectId: "mutudio-hall-lent",
+  storageBucket: "mutudio-hall-lent.firebasestorage.app",
+  messagingSenderId: "594893307366",
+  appId: "1:594893307366:web:3130af7684a4370456aa27",
+  measurementId: "G-CF6TPP5ZJE"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const RESERVATIONS_COL = 'hallReservations';
+
+// ── 새 예약 알림(디스코드) — 디스코드에서 발급받은 웹훅 URL로 교체하세요 ──
+// 설정 방법: 디스코드 서버 → 알림 받을 채널 설정(톱니바퀴) → 연동 → 웹후크 → 새 웹후크 만들기 → 웹후크 URL 복사
+const DISCORD_WEBHOOK_URL = 'PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE';
+
+function notifyDiscordNewReservation(id, r){
+  if(!DISCORD_WEBHOOK_URL || DISCORD_WEBHOOK_URL.includes('PASTE_YOUR')) return; // 웹훅 미설정 시 조용히 무시
+  const slotLabel = SLOTS[r.slot]?.label || r.slot;
+  const timeLabel = r.slot === 'dawn' ? '23:00 ~ 06:00' : `${String(r.start).padStart(2,'0')}:00 ~ ${String(r.start + r.hours).padStart(2,'0')}:00`;
+  const payLabel = r.pay === 'card' ? '카드 결제' : '계좌 입금';
+  fetch(DISCORD_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      embeds: [{
+        title: '🆕 새 홀 대관 예약',
+        color: 3900219,
+        fields: [
+          { name: '예약번호', value: id.slice(-6).toUpperCase(), inline: true },
+          { name: '날짜', value: r.date, inline: true },
+          { name: '시간대', value: `${slotLabel} (${timeLabel})`, inline: false },
+          { name: '홀', value: r.hall === 'A' ? 'A홀 (40평)' : 'B홀 (16평)', inline: true },
+          { name: '인원', value: `${r.people}인`, inline: true },
+          { name: '예약자', value: `${r.name} (${r.phone})`, inline: false },
+          { name: '결제수단', value: payLabel, inline: true },
+          { name: '금액', value: `${r.amount.toLocaleString('ko-KR')}원`, inline: true }
+        ]
+      }]
+    })
+  }).catch(err => console.error('디스코드 알림 전송 실패:', err));
+}
+
+// ── 토스페이먼츠 설정 — 토스페이먼츠 개발자센터에서 발급받은 클라이언트 키로 교체하세요 ──
+const TOSS_CLIENT_KEY = 'test_ck_XXXXXXXXXXXXXXXXXXXXXXXX';
+// 실제 결제 승인(카드 청구 확정)은 시크릿 키가 필요해 브라우저에서 처리할 수 없어요.
+// functions/index.js의 confirmTossPayment 함수가 그 역할을 해요 — Firebase Functions 배포(Blaze 요금제) 필요.
+
+const SLOTS = {
+  dawn: {
+    label: '새벽 대관 (통대관)',
+    fixed: true, fixedHours: 7, fixedLabel: '밤 11시 ~ 오전 6시 (7시간)',
+    halls: {
+      A: { name: 'A홀 (40평)', base: 180000, basePeople: 15, extraPerPerson: 5000 },
+      B: { name: 'B홀 (16평)', base: 30000, basePeople: 3, extraPerPerson: 5000 }
+    }
+  },
+  weekday: {
+    label: '평일 낮 대관',
+    fixed: false, windowStart: 6, windowEnd: 17,
+    halls: {
+      A: { name: 'A홀 (40평)', perHour: 30000, basePeople: 10, extraPerPerson: 2000 },
+      B: { name: 'B홀 (16평)', perHour: 10000, basePeople: 3, extraPerPerson: 1000 }
+    }
+  },
+  weekend: {
+    label: '주말 낮 대관 (토/일)',
+    fixed: false, windowStart: 6, windowEnd: 16,
+    halls: {
+      A: { name: 'A홀 (40평)', perHour: 30000, basePeople: 10, extraPerPerson: 2000 },
+      B: { name: 'B홀 (16평)', perHour: 10000, basePeople: 3, extraPerPerson: 1000 }
+    }
+  }
+};
+
+// 선택된 날짜·시간대·홀 기준으로 이미 예약된 시간을 Firestore에서 실시간으로 가져와요
+let currentReservedHours = [];
+let currentDawnReserved = false;
+let unsubscribeAvailability = null;
+const ACTIVE_STATUSES = ['pending_transfer', 'pending_payment', 'confirmed'];
+
+// ── 새벽 대관 예약 현황 달력 ──
+let dawnReservedDates = new Set();
+let unsubscribeDawnCal = null;
+const _today = new Date();
+let calViewYear = _today.getFullYear();
+let calViewMonth = _today.getMonth(); // 0-indexed
+
+function todayDateString(){
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+
+function subscribeDawnCalendar(){
+  if(unsubscribeDawnCal){ unsubscribeDawnCal(); unsubscribeDawnCal = null; }
+  dawnReservedDates = new Set();
+  const wrap = document.getElementById('dawnCalWrap');
+  if(state.slot !== 'dawn' || !state.hall){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+
+  const q = db.collection(RESERVATIONS_COL)
+    .where('slot', '==', 'dawn')
+    .where('hall', '==', state.hall)
+    .where('status', 'in', ACTIVE_STATUSES);
+
+  unsubscribeDawnCal = q.onSnapshot(snap => {
+    dawnReservedDates = new Set(snap.docs.map(d => d.data().date));
+    renderDawnCalendar();
+  }, err => {
+    console.error('새벽 대관 예약 현황을 불러오지 못했어요:', err);
+  });
+}
+
+function renderDawnCalendar(){
+  const grid = document.getElementById('calGrid');
+  const label = document.getElementById('calMonthLabel');
+  if(!grid || !label) return;
+  grid.innerHTML = '';
+  label.textContent = `${calViewYear}년 ${calViewMonth + 1}월`;
+
+  ['일','월','화','수','목','금','토'].forEach(w => {
+    const el = document.createElement('div');
+    el.className = 'cal-weekday';
+    el.textContent = w;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(calViewYear, calViewMonth, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+  const todayStr = todayDateString();
+  const selectedDate = document.getElementById('dateInput').value;
+
+  for(let i = 0; i < startOffset; i++){
+    const pad = document.createElement('div');
+    pad.className = 'cal-cell pad';
+    grid.appendChild(pad);
+  }
+
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${calViewYear}-${String(calViewMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cell = document.createElement('div');
+    cell.textContent = d;
+    const isPast = dateStr < todayStr;
+    const isFull = dawnReservedDates.has(dateStr);
+    const isSelected = selectedDate === dateStr;
+    cell.className = 'cal-cell ' + (isPast ? 'past' : (isFull ? 'full' : 'ok')) + (isSelected && !isPast && !isFull ? ' selected' : '');
+    if(!isPast && !isFull){
+      cell.onclick = () => {
+        document.getElementById('dateInput').value = dateStr;
+        onDateChange();
+      };
+    }
+    grid.appendChild(cell);
+  }
+}
+
+document.getElementById('calPrevBtn').addEventListener('click', () => {
+  calViewMonth--; if(calViewMonth < 0){ calViewMonth = 11; calViewYear--; }
+  renderDawnCalendar();
+});
+document.getElementById('calNextBtn').addEventListener('click', () => {
+  calViewMonth++; if(calViewMonth > 11){ calViewMonth = 0; calViewYear++; }
+  renderDawnCalendar();
+});
+
+// ── 예약 결과 모달 ──
+function showResultModal(title, bodyHtml, icon){
+  document.getElementById('modalIcon').textContent = icon || '✅';
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('resultModal').classList.add('show');
+}
+document.getElementById('modalCloseBtn').addEventListener('click', () => {
+  document.getElementById('resultModal').classList.remove('show');
+});
+
+function subscribeAvailability(){
+  if(unsubscribeAvailability){ unsubscribeAvailability(); unsubscribeAvailability = null; }
+  currentReservedHours = [];
+  currentDawnReserved = false;
+
+  const date = document.getElementById('dateInput').value;
+  if(!state.slot || !state.hall || !date){ renderHourGrid(); return; }
+
+  const q = db.collection(RESERVATIONS_COL)
+    .where('date', '==', date)
+    .where('slot', '==', state.slot)
+    .where('hall', '==', state.hall)
+    .where('status', 'in', ACTIVE_STATUSES);
+
+  unsubscribeAvailability = q.onSnapshot(snap => {
+    if(SLOTS[state.slot].fixed){
+      currentDawnReserved = !snap.empty;
+    } else {
+      const hours = new Set();
+      snap.forEach(doc => {
+        const d = doc.data();
+        for(let i = 0; i < d.hours; i++) hours.add(d.start + i);
+      });
+      currentReservedHours = [...hours];
+    }
+    renderHourGrid();
+  }, err => {
+    // 최초 실행 시 Firestore가 복합 색인 생성을 요구할 수 있어요 — 콘솔 에러의 링크로 생성하면 돼요.
+    console.error('예약 현황을 불러오지 못했어요:', err);
+  });
+}
+
+let state = { slot: null, hall: null, duration: 0, startHour: null, selectedHours: [], people: 0, light: false, pay: null, reserved: false };
+
+const won = n => n.toLocaleString('ko-KR') + '원';
+const slotGrid = document.getElementById('slotGrid');
+const hallGrid = document.getElementById('hallGrid');
+const payGrid = document.getElementById('payGrid');
+
+function renderHallGrid(){
+  hallGrid.innerHTML = '';
+  if(!state.slot){
+    hallGrid.innerHTML = '<div class="counter-info" style="margin-left:0;">먼저 시간대를 선택해 주세요.</div>';
+    return;
+  }
+  const slot = SLOTS[state.slot];
+  Object.entries(slot.halls).forEach(([key, h]) => {
+    const div = document.createElement('div');
+    div.className = 'opt' + (state.hall === key ? ' active' : '');
+    div.dataset.hall = key;
+    const priceLabel = slot.fixed ? won(h.base) : won(h.perHour) + '/h';
+    div.innerHTML = `<div class="opt-title">${h.name}</div>
+      <div class="opt-sub">기본 ${h.basePeople}인 · 추가 1인당 ${won(h.extraPerPerson)}</div>
+      <div class="opt-price">${priceLabel}</div>`;
+    div.onclick = () => {
+      state.hall = key; state.people = h.basePeople;
+      state.startHour = null; state.duration = 0; state.selectedHours = [];
+      renderHallGrid(); subscribeAvailability(); subscribeDawnCalendar(); renderPeople(); update();
+    };
+    hallGrid.appendChild(div);
+  });
+}
+
+function renderHourGrid(){
+  const grid = document.getElementById('hourGrid');
+  const desc = document.getElementById('hourGridDesc');
+  const info = document.getElementById('hourSelInfo');
+  grid.innerHTML = '';
+  if(!state.slot || !state.hall){
+    desc.textContent = '먼저 시간대와 홀을 선택해 주세요.';
+    info.textContent = '';
+    return;
+  }
+  const slot = SLOTS[state.slot];
+
+  if(slot.fixed){
+    desc.textContent = '통대관은 시간 전체를 한 번에 빌려요. 이미 예약된 날은 선택할 수 없어요.';
+    const reserved = currentDawnReserved;
+    state.reserved = !!reserved;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hour-btn full' + (reserved ? ' reserved' : (state.duration > 0 ? ' selected' : ''));
+    btn.disabled = reserved;
+    btn.textContent = reserved ? `${slot.fixedLabel} · 예약 마감` : slot.fixedLabel;
+    btn.onclick = () => {
+      state.duration = state.duration > 0 ? 0 : slot.fixedHours;
+      renderHourGrid(); update();
+    };
+    grid.appendChild(btn);
+    info.textContent = state.duration > 0 ? `${slot.fixedLabel} 선택됨` : '';
+    return;
+  }
+
+  desc.textContent = '이용하실 시간을 1시간 단위로 선택해 주세요. 이미 예약된 시간은 선택할 수 없어요.';
+  state.reserved = false;
+  const reservedHours = currentReservedHours;
+
+  for(let h = slot.windowStart; h < slot.windowEnd; h++){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hour-btn';
+    const isReserved = reservedHours.includes(h);
+    const isSelected = state.selectedHours.includes(h);
+    if(isReserved) btn.classList.add('reserved');
+    if(isSelected) btn.classList.add('selected');
+    btn.disabled = isReserved;
+    btn.textContent = `${String(h).padStart(2,'0')}:00`;
+    btn.onclick = () => onHourClick(h);
+    grid.appendChild(btn);
+  }
+
+  if(state.selectedHours.length > 0){
+    const start = Math.min(...state.selectedHours);
+    const end = Math.max(...state.selectedHours) + 1;
+    info.textContent = `${String(start).padStart(2,'0')}:00 ~ ${String(end).padStart(2,'0')}:00 이용 (${state.selectedHours.length}시간)`;
+  } else {
+    info.textContent = '';
+  }
+}
+
+function onHourClick(h){
+  const slot = SLOTS[state.slot];
+  const reservedHours = currentReservedHours;
+  let sel = state.selectedHours;
+
+  if(sel.includes(h)){
+    // 선택된 칸을 다시 누르면: 가장자리면 줄이고, 중간이면 그 지점까지로 새로 시작
+    const min = Math.min(...sel), max = Math.max(...sel);
+    if(h === max) sel = sel.filter(x => x !== h);
+    else if(h === min) sel = sel.filter(x => x !== h);
+    else sel = [h];
+  } else {
+    if(sel.length === 0){
+      sel = [h];
+    } else {
+      const min = Math.min(...sel), max = Math.max(...sel);
+      if(h === max + 1 || h === min - 1){
+        // 인접한 시간이면 이어붙이되, 그 사이에 예약된 시간이 없을 때만
+        const lo = Math.min(h, min), hi = Math.max(h, max);
+        const blocked = reservedHours.some(r => r > lo - 1 && r < hi + 1 && r >= lo && r <= hi);
+        sel = blocked ? [h] : rangeArray(lo, hi);
+      } else {
+        sel = [h];
+      }
+    }
+  }
+  state.selectedHours = sel;
+  state.startHour = sel.length ? Math.min(...sel) : null;
+  state.duration = sel.length;
+  renderHourGrid();
+  update();
+}
+
+function rangeArray(lo, hi){
+  const arr = [];
+  for(let i = lo; i <= hi; i++) arr.push(i);
+  return arr;
+}
+
+function renderPeople(){
+  const desc = document.getElementById('peopleDesc');
+  if(!state.hall){ desc.textContent = '먼저 홀을 선택해 주세요.'; document.getElementById('peopleInfo').textContent=''; return; }
+  const slot = SLOTS[state.slot];
+  const h = slot.halls[state.hall];
+  desc.textContent = slot.fixed
+    ? `기본 인원 ${h.basePeople}인 포함, 이후 1인당 ${won(h.extraPerPerson)}이 추가돼요.`
+    : `기본 인원 ${h.basePeople}인 포함, 이후 1인당 시간당 ${won(h.extraPerPerson)}이 추가돼요.`;
+  document.getElementById('peopleVal').value = state.people;
+  const extra = Math.max(0, state.people - h.basePeople);
+  const hours = slot.fixed ? 1 : (state.duration || 0);
+  const extraFee = extra * h.extraPerPerson * hours;
+  document.getElementById('peopleInfo').innerHTML = extra > 0
+    ? `기본 ${h.basePeople}인 + 추가 <b>${extra}인</b> · <b>+${won(extraFee)}</b>${slot.fixed ? '' : ` (시간당 ${won(h.extraPerPerson)} × ${hours}시간)`}`
+    : `기본 인원 이내 · 추가 1인당 ${slot.fixed ? '' : '시간당 '}+${won(h.extraPerPerson)}`;
+}
+
+// 시간대 클릭
+slotGrid.addEventListener('click', e => {
+  const opt = e.target.closest('.opt');
+  if(!opt) return;
+  state.slot = opt.dataset.slot;
+  state.hall = null; state.people = 0; state.startHour = null; state.duration = 0; state.selectedHours = [];
+  [...slotGrid.children].forEach(c => c.classList.toggle('active', c === opt));
+  renderHallGrid(); subscribeAvailability(); subscribeDawnCalendar(); renderPeople(); update();
+});
+
+// 결제수단 클릭
+payGrid.addEventListener('click', e => {
+  const opt = e.target.closest('.opt');
+  if(!opt) return;
+  if(opt.dataset.pay === 'card') return; // 카드 결제는 아직 준비 중이라 선택하지 않아요
+  state.pay = opt.dataset.pay;
+  [...payGrid.children].forEach(c => c.classList.toggle('active', c === opt));
+  document.getElementById('bankBox').classList.toggle('show', state.pay === 'transfer');
+  update();
+});
+
+// 인원 +/-
+document.getElementById('peopleMinus').addEventListener('click', () => {
+  if(!state.hall) return;
+  const base = SLOTS[state.slot].halls[state.hall].basePeople;
+  if(state.people > base) state.people--;
+  renderPeople(); update();
+});
+document.getElementById('peoplePlus').addEventListener('click', () => {
+  if(!state.hall) return;
+  state.people++;
+  renderPeople(); update();
+});
+document.getElementById('peopleVal').addEventListener('change', (e) => {
+  if(!state.hall){ e.target.value = 0; return; }
+  const base = SLOTS[state.slot].halls[state.hall].basePeople;
+  let val = parseInt(e.target.value, 10);
+  if(isNaN(val) || val < base) val = base;
+  state.people = val;
+  renderPeople(); update();
+});
+
+document.getElementById('lightOpt').addEventListener('change', e => {
+  state.light = e.target.checked; update();
+});
+
+function calc(){
+  if(!state.slot || !state.hall || state.duration <= 0) return null;
+  const slot = SLOTS[state.slot];
+  const h = slot.halls[state.hall];
+  let base;
+  if(slot.fixed){
+    base = h.base;
+  } else {
+    base = h.perHour * state.duration;
+  }
+  const extraPeople = Math.max(0, state.people - h.basePeople);
+  const extraHours = slot.fixed ? 1 : state.duration;
+  const extraPeopleFee = extraPeople * h.extraPerPerson * extraHours;
+  const optionsFee = state.light ? 50000 : 0;
+  const total = base + extraPeopleFee + optionsFee;
+  return { base, extraPeople, extraPeopleFee, optionsFee, total, hallName: h.name, slotLabel: slot.label };
+}
+
+function update(){
+  if(state.hall) renderPeople();
+  const r = calc();
+  const ctaBtn = document.getElementById('ctaBtn');
+  document.getElementById('sumSlot').textContent = state.slot ? SLOTS[state.slot].label : '-';
+  document.getElementById('sumHall').textContent = r ? r.hallName : '-';
+
+  if(r){
+    const slot = SLOTS[state.slot];
+    document.getElementById('sumTime').textContent = slot.fixed
+      ? slot.fixedLabel
+      : `${String(state.startHour).padStart(2,'0')}:00 ~ ${String(state.startHour + state.duration).padStart(2,'0')}:00 (${state.duration}시간)`;
+    document.getElementById('sumPeople').textContent = `${state.people}인`;
+    document.getElementById('sumBase').textContent = won(r.base);
+    document.getElementById('sumExtraPeople').textContent = r.extraPeople > 0 ? `${r.extraPeople}인 · ${won(r.extraPeopleFee)}` : '없음';
+    document.getElementById('sumOptions').textContent = state.light ? `조명 렌트 · ${won(50000)}` : '없음';
+    document.getElementById('sumTotal').textContent = won(r.total);
+  } else {
+    document.getElementById('sumTime').textContent = '-';
+    document.getElementById('sumPeople').textContent = '-';
+    document.getElementById('sumBase').textContent = '-';
+    document.getElementById('sumExtraPeople').textContent = '-';
+    document.getElementById('sumOptions').textContent = '-';
+    document.getElementById('sumTotal').textContent = '0원';
+  }
+  document.getElementById('sumPay').textContent = state.pay === 'card' ? '카드 결제' : state.pay === 'transfer' ? '계좌 입금' : '-';
+
+  const dateOk = document.getElementById('dateInput').value;
+  const nameOk = document.getElementById('nameInput').value.trim();
+  const phoneOk = document.getElementById('phoneInput').value.trim();
+  ctaBtn.disabled = !(r && state.pay && dateOk && nameOk && phoneOk);
+}
+
+document.getElementById('nameInput').addEventListener('input', update);
+document.getElementById('phoneInput').addEventListener('input', update);
+
+function onDateChange(){
+  state.startHour = null; state.duration = 0; state.selectedHours = [];
+  subscribeAvailability();
+  renderDawnCalendar();
+  update();
+}
+
+document.getElementById('dateInput').addEventListener('change', onDateChange);
+
+document.getElementById('ctaBtn').addEventListener('click', async () => {
+  const r = calc();
+  const date = document.getElementById('dateInput').value;
+  const name = document.getElementById('nameInput').value.trim();
+  const phone = document.getElementById('phoneInput').value.trim();
+  const box = document.getElementById('confirmBox');
+  const ctaBtn = document.getElementById('ctaBtn');
+  if(!r || !state.pay || !date || !name || !phone) return;
+
+  ctaBtn.disabled = true;
+  const originalLabel = ctaBtn.textContent;
+  ctaBtn.textContent = '처리 중...';
+
+  const reservation = {
+    date, slot: state.slot, hall: state.hall,
+    start: SLOTS[state.slot].fixed ? 23 : state.startHour,
+    hours: state.duration,
+    people: state.people,
+    options: state.light ? ['조명 렌트'] : [],
+    pay: state.pay,
+    amount: r.total,
+    name, phone,
+    status: state.pay === 'card' ? 'pending_payment' : 'pending_transfer',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    const docRef = await db.collection(RESERVATIONS_COL).add(reservation);
+    notifyDiscordNewReservation(docRef.id, reservation);
+
+    if(state.pay === 'transfer'){
+      const bodyHtml = `예약번호 <b>${docRef.id.slice(-6).toUpperCase()}</b><br><br>
+        아래 계좌로 <b>${won(r.total)}</b>을 입금해 주시면 확인 후 예약이 확정돼요.<br><br>
+        <b>${document.getElementById('bankInfoText').textContent}</b><br>
+        입금자명에 예약자 성함(${name})을 남겨 주세요.`;
+      showResultModal('예약이 접수됐어요', bodyHtml, '✅');
+      box.classList.add('show');
+      box.innerHTML = `예약이 접수됐어요. (예약번호 ${docRef.id.slice(-6).toUpperCase()})<br>
+        아래 계좌로 <b>${won(r.total)}</b>을 입금해 주시면 확인 후 예약이 확정돼요.<br><br>
+        <b>${document.getElementById('bankInfoText').textContent}</b><br>
+        입금자명에 예약자 성함(${name})을 남겨 주세요.`;
+      ctaBtn.textContent = originalLabel;
+      ctaBtn.disabled = true;
+    } else {
+      const tossPayments = TossPayments(TOSS_CLIENT_KEY);
+      const basePath = location.pathname.replace(/[^/]+$/, '');
+      await tossPayments.requestPayment('카드', {
+        amount: r.total,
+        orderId: docRef.id,
+        orderName: `mu:tudio 홀 대관 (${r.hallName})`,
+        customerName: name,
+        successUrl: `${location.origin}${basePath}payment-success.html`,
+        failUrl: `${location.origin}${basePath}payment-fail.html?orderId=${docRef.id}`
+      });
+      // 정상적인 경우 여기서 결제창으로 이동하며 아래 코드는 실행되지 않아요.
+    }
+  } catch(err){
+    console.error(err);
+    showResultModal('예약 처리 중 문제가 생겼어요', '잠시 후 다시 시도해 주세요. 계속 안 되면 문의처로 연락 주세요.', '⚠️');
+    box.classList.add('show');
+    box.innerHTML = '예약 처리 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
+    ctaBtn.disabled = false;
+    ctaBtn.textContent = originalLabel;
+  }
+});
+
+renderHallGrid();
+renderHourGrid();
+renderPeople();
+renderDawnCalendar();
+</script>
+</body>
+</html>
