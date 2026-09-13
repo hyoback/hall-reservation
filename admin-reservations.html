@@ -1,337 +1,80 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>mu:tudio 관리자 — 홀 대관 현황</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<style>
-  :root{
-    --bg:#0F1D14; --panel:#17281B; --panel-2:#1D3122;
-    --line:rgba(243,241,233,0.12); --line-strong:rgba(243,241,233,0.22);
-    --paper:#F3F1E9; --paper-dim:rgba(243,241,233,0.62); --paper-faint:rgba(243,241,233,0.38);
-    --gold:#CDA632; --gold-soft:rgba(205,166,50,0.14);
-    --green-ok:#5FA876; --amber:#CDA632; --grey:#8A8A82;
-    --radius:14px;
-  }
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--paper);font-family:'Noto Sans KR',sans-serif;}
-  .wrap{max-width:1180px;margin:0 auto;padding:48px 24px 100px;}
+mu:tudio
+홀 대관 예약
+Hall Rental Guide
+시간대와 홀을 고르고, 인원과 옵션을 더하면 금액이 바로 계산돼요.
+마지막에 결제 수단을 선택하시면 예약 요청이 완료됩니다.
+01
+시간대 선택
+시간대에 따라 요금 방식이 달라요.
+새벽 대관 (통대관)
+대관 시간 7시간
+밤 11시 ~ 오전 6시
+A홀 180,000원
+B홀 30,000원
+평일 낮 대관
+시간당 대관
+오전 6시 ~ 오후 5시
+A홀 30,000원/h
+B홀 10,000원/h
+주말 낮 대관
+시간당 대관
+토·일 오전 6시 ~ 오후 4시
+A홀 30,000원/h
+B홀 10,000원/h
+02
+홀 선택
+A홀 (40평) · B홀 (16평)
+03
+이용 날짜 · 시간
+날짜
+먼저 시간대와 홀을 선택해 주세요.
 
-  .brand{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:12px;}
-  .brand-mark{font-size:15px;letter-spacing:0.02em;color:var(--gold);font-weight:600;}
-  .brand-sub{font-size:13px;color:var(--paper-faint);}
-  h1{font-family:'Black Han Sans',sans-serif;font-weight:400;font-size:clamp(26px,4vw,36px);margin:0 0 6px;}
-  .lede{color:var(--paper-dim);font-size:14.5px;margin:0 0 36px;}
+04
+인원
+먼저 홀을 선택해 주세요.
+−
 
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:40px;}
-  @media (max-width:800px){.stats{grid-template-columns:repeat(2,1fr);}}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;}
-  .stat .l{font-size:12.5px;color:var(--paper-faint);margin-bottom:8px;}
-  .stat .v{font-family:'Black Han Sans',sans-serif;font-size:26px;color:var(--paper);}
-  .stat .v.gold{color:var(--gold);}
++
 
-  .section{margin-bottom:44px;}
-  .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
-  .section-title{font-size:17px;font-weight:700;}
-  .section-sub{font-size:12.5px;color:var(--paper-faint);}
+05
+추가 옵션
 
-  .board-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
-  select, input[type=date], input[type=text]{
-    background:var(--panel);border:1px solid var(--line);color:var(--paper);
-    padding:9px 12px;border-radius:10px;font-family:inherit;font-size:13.5px;
-  }
-  select:focus, input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+조명 렌트
++50,000원
+요가 매트 15개는 기본으로 구비되어 있어 별도 비용 없이 이용하실 수 있어요.
+Team 장기(정기) 대관 안내
+정기적으로 같은 시간에 연습실을 쓰신다면 할인 요금을 안내해 드려요.
+문의 남겨 주시면 확인 후 연락드릴게요.
+문의 010-3003-1562
+06
+예약자 정보
+이름
 
-  .board{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
-  .board-hall{margin-bottom:18px;}
-  .board-hall:last-child{margin-bottom:0;}
-  .board-hall-title{font-size:13px;font-weight:700;margin-bottom:8px;color:var(--paper-dim);}
-  .hour-row{display:flex;flex-wrap:wrap;gap:6px;}
-  .hour-cell{
-    min-width:56px;padding:8px 6px;border-radius:8px;border:1px solid var(--line);
-    text-align:center;font-size:12px;background:var(--panel-2);color:var(--paper-dim);
-  }
-  .hour-cell.busy{background:var(--gold-soft);border-color:var(--gold);color:var(--gold);font-weight:700;}
-  .hour-cell .t{display:block;font-size:10.5px;color:var(--paper-faint);margin-top:2px;}
-  .hour-cell.busy .t{color:var(--gold);opacity:.85;}
+연락처
 
-  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
-  thead th{
-    text-align:left;font-size:12px;color:var(--paper-faint);font-weight:600;
-    padding:12px 14px;border-bottom:1px solid var(--line-strong);background:var(--panel-2);white-space:nowrap;
-  }
-  tbody td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid var(--line);white-space:nowrap;}
-  tbody tr:last-child td{border-bottom:none;}
-  tbody tr:hover{background:var(--panel-2);}
-  .badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;}
-  .badge.confirmed{background:rgba(95,168,118,0.15);color:var(--green-ok);}
-  .badge.pending{background:var(--gold-soft);color:var(--gold);}
-  .badge.canceled{background:rgba(138,138,130,0.15);color:var(--grey);text-decoration:line-through;}
-  .amount{color:var(--gold);font-weight:700;}
-  .empty-row td{text-align:center;color:var(--paper-faint);padding:28px;}
-
-  .row-actions{display:flex;gap:6px;}
-  .row-btn{
-    border:1px solid var(--line);background:var(--panel-2);color:var(--paper);
-    padding:6px 10px;border-radius:8px;font-size:11.5px;cursor:pointer;font-family:inherit;
-  }
-  .row-btn:hover{border-color:var(--line-strong);}
-  .row-btn.confirm{border-color:var(--green-ok);color:var(--green-ok);}
-  .row-btn.cancel{border-color:var(--grey);color:var(--paper-faint);}
-
-  .table-scroll{overflow-x:auto;border-radius:var(--radius);}
-  .table-scroll table{border-radius:0;}
-
-  .note{margin-top:14px;font-size:12px;color:var(--paper-faint);line-height:1.6;}
-</style>
-</head>
-<body>
-<div class="wrap">
-
-  <div class="brand">
-    <div class="brand-mark">mu:tudio</div>
-    <div class="brand-sub">관리자</div>
-  </div>
-  <h1>홀 대관 현황</h1>
-  <p class="lede">예약 건수, 결제 상태, 시간대별 사용 현황을 한눈에 확인해요.</p>
-
-  <div class="stats">
-    <div class="stat"><div class="l">이번 달 예약 건수</div><div class="v" id="statTotal">-</div></div>
-    <div class="stat"><div class="l">결제 완료 매출</div><div class="v gold" id="statRevenue">-</div></div>
-    <div class="stat"><div class="l">입금 대기</div><div class="v" id="statPending">-</div></div>
-    <div class="stat"><div class="l">취소</div><div class="v" id="statCanceled">-</div></div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">시간대별 사용 현황판</div>
-        <div class="section-sub">선택한 날짜 · 시간대 기준으로 예약된 시간을 표시해요.</div>
-      </div>
-      <div class="board-controls">
-        <input type="date" id="boardDate">
-        <select id="boardSlot">
-          <option value="dawn">새벽 대관 (통대관)</option>
-          <option value="weekday" selected>평일 낮 대관</option>
-          <option value="weekend">주말 낮 대관</option>
-        </select>
-      </div>
-    </div>
-    <div class="board" id="board"></div>
-  </div>
-
-  <div class="section">
-    <div class="section-head">
-      <div>
-        <div class="section-title">예약 목록</div>
-        <div class="section-sub">전체 예약 내역이에요. 필터로 좁혀서 볼 수 있어요.</div>
-      </div>
-      <div class="board-controls">
-        <input type="text" id="searchInput" placeholder="예약자명 · 연락처 검색">
-        <select id="filterHall">
-          <option value="all">전체 홀</option>
-          <option value="A">A홀</option>
-          <option value="B">B홀</option>
-        </select>
-        <select id="filterStatus">
-          <option value="all">전체 상태</option>
-          <option value="confirmed">결제 완료</option>
-          <option value="pending_transfer">입금 대기</option>
-          <option value="pending_payment">카드결제 대기</option>
-          <option value="canceled">취소</option>
-        </select>
-      </div>
-    </div>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>날짜</th><th>시간대</th><th>홀</th><th>이용 시간</th><th>예약자</th><th>연락처</th>
-            <th>인원</th><th>옵션</th><th>결제수단</th><th>상태</th><th>금액</th><th>관리</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
-    </div>
-    <p class="note">고객용 예약 페이지와 같은 Firestore 데이터베이스를 실시간으로 조회하고 있어요. 신규 예약이 들어오면 자동으로 이 화면에 반영돼요. 입금 대기 건은 입금 확인 후 "입금 확인" 버튼을 눌러 예약을 확정해 주세요.</p>
-  </div>
-
-</div>
-
-<script>
-// ── hall-reservation.html과 반드시 동일한 Firebase 설정으로 교체하세요 ──
-const firebaseConfig = {
-  apiKey: "AIzaSyCnuvL3OorJU-2zLsC0E0WpPS5yswjy7WE",
-  authDomain: "mutudio-hall-lent.firebaseapp.com",
-  projectId: "mutudio-hall-lent",
-  storageBucket: "mutudio-hall-lent.firebasestorage.app",
-  messagingSenderId: "594893307366",
-  appId: "1:594893307366:web:3130af7684a4370456aa27",
-  measurementId: "G-CF6TPP5ZJE"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const RESERVATIONS_COL = 'hallReservations';
-
-const SLOT_LABEL = { dawn: '새벽 대관 (통대관)', weekday: '평일 낮 대관', weekend: '주말 낮 대관' };
-const SLOT_WINDOW = { weekday: [6,17], weekend: [6,16] };
-const STATUS_LABEL = { confirmed:'결제 완료', pending_transfer:'입금 대기', pending_payment:'카드결제 대기', canceled:'취소' };
-const STATUS_BADGE_CLASS = { confirmed:'confirmed', pending_transfer:'pending', pending_payment:'pending', canceled:'canceled' };
-
-let RESERVATIONS = []; // Firestore 실시간 구독으로 채워져요
-
-function won(n){ return n.toLocaleString('ko-KR') + '원'; }
-
-// ── Firestore 실시간 구독: 예약이 생기거나 상태가 바뀌면 즉시 화면에 반영돼요 ──
-db.collection(RESERVATIONS_COL).orderBy('date').orderBy('start').onSnapshot(snap => {
-  RESERVATIONS = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  renderStats();
-  renderBoard();
-  renderTable();
-}, err => {
-  // 최초 실행 시 Firestore가 복합 색인 생성을 요구할 수 있어요 — 콘솔 에러의 링크로 생성하면 돼요.
-  console.error('예약 목록을 불러오지 못했어요:', err);
-});
-
-async function confirmTransfer(id){
-  if(!confirm('입금을 확인하셨나요? 예약이 확정 상태로 바뀌어요.')) return;
-  await db.collection(RESERVATIONS_COL).doc(id).update({ status: 'confirmed' });
-}
-
-async function cancelReservation(id){
-  if(!confirm('이 예약을 취소 처리할까요?')) return;
-  await db.collection(RESERVATIONS_COL).doc(id).update({ status: 'canceled' });
-}
-
-function renderStats(){
-  const now = new Date();
-  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const thisMonth = RESERVATIONS.filter(r => r.date && r.date.startsWith(ym));
-  const revenue = thisMonth.filter(r => r.status === 'confirmed').reduce((s,r) => s + r.amount, 0);
-  const pending = thisMonth.filter(r => r.status === 'pending_transfer' || r.status === 'pending_payment').length;
-  const canceled = thisMonth.filter(r => r.status === 'canceled').length;
-  document.getElementById('statTotal').textContent = `${thisMonth.length}건`;
-  document.getElementById('statRevenue').textContent = won(revenue);
-  document.getElementById('statPending').textContent = `${pending}건`;
-  document.getElementById('statCanceled').textContent = `${canceled}건`;
-}
-
-function renderBoard(){
-  const date = document.getElementById('boardDate').value;
-  const slot = document.getElementById('boardSlot').value;
-  const board = document.getElementById('board');
-  board.innerHTML = '';
-
-  const dayReservations = RESERVATIONS.filter(r => r.date === date && r.slot === slot && r.status !== 'canceled');
-
-  ['A','B'].forEach(hall => {
-    const wrap = document.createElement('div');
-    wrap.className = 'board-hall';
-    const title = document.createElement('div');
-    title.className = 'board-hall-title';
-    title.textContent = hall === 'A' ? 'A홀 (40평)' : 'B홀 (16평)';
-    wrap.appendChild(title);
-
-    const row = document.createElement('div');
-    row.className = 'hour-row';
-
-    if(slot === 'dawn'){
-      const res = dayReservations.find(r => r.hall === hall);
-      const cell = document.createElement('div');
-      cell.className = 'hour-cell' + (res ? ' busy' : '');
-      cell.style.minWidth = '220px';
-      cell.innerHTML = res
-        ? `23:00 ~ 06:00<span class="t">${res.name}</span>`
-        : `23:00 ~ 06:00<span class="t">비어 있음</span>`;
-      row.appendChild(cell);
-    } else {
-      const [ws, we] = SLOT_WINDOW[slot];
-      const hallReservations = dayReservations.filter(r => r.hall === hall);
-      for(let h = ws; h < we; h++){
-        const owner = hallReservations.find(r => h >= r.start && h < r.start + r.hours);
-        const cell = document.createElement('div');
-        cell.className = 'hour-cell' + (owner ? ' busy' : '');
-        cell.innerHTML = `${String(h).padStart(2,'0')}:00<span class="t">${owner ? owner.name : '비어 있음'}</span>`;
-        row.appendChild(cell);
-      }
-    }
-    wrap.appendChild(row);
-    board.appendChild(wrap);
-  });
-}
-
-function renderTable(){
-  const search = document.getElementById('searchInput').value.trim().toLowerCase();
-  const hallFilter = document.getElementById('filterHall').value;
-  const statusFilter = document.getElementById('filterStatus').value;
-  const body = document.getElementById('tableBody');
-  body.innerHTML = '';
-
-  const rows = RESERVATIONS
-    .filter(r => hallFilter === 'all' || r.hall === hallFilter)
-    .filter(r => statusFilter === 'all' || r.status === statusFilter)
-    .filter(r => !search || (r.name || '').toLowerCase().includes(search) || (r.phone || '').includes(search))
-    .sort((a,b) => a.date.localeCompare(b.date) || a.start - b.start);
-
-  if(rows.length === 0){
-    body.innerHTML = '<tr class="empty-row"><td colspan="12">조건에 맞는 예약이 없어요.</td></tr>';
-    return;
-  }
-
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    const end = r.slot === 'dawn' ? '06:00' : `${String(r.start + r.hours).padStart(2,'0')}:00`;
-    const startLabel = r.slot === 'dawn' ? '23:00' : `${String(r.start).padStart(2,'0')}:00`;
-    const options = (r.options || []).length ? r.options.join(', ') : '-';
-
-    let actions = '';
-    if(r.status === 'pending_transfer'){
-      actions += `<button class="row-btn confirm" data-action="confirm" data-id="${r.id}">입금 확인</button>`;
-    }
-    if(r.status !== 'canceled'){
-      actions += `<button class="row-btn cancel" data-action="cancel" data-id="${r.id}">취소</button>`;
-    }
-
-    tr.innerHTML = `
-      <td>${r.date}</td>
-      <td>${SLOT_LABEL[r.slot] || r.slot}</td>
-      <td>${r.hall}홀</td>
-      <td>${startLabel} ~ ${end} (${r.hours}시간)</td>
-      <td>${r.name || '-'}</td>
-      <td>${r.phone || '-'}</td>
-      <td>${r.people}인</td>
-      <td>${options}</td>
-      <td>${r.pay === 'card' ? '카드' : '계좌 입금'}</td>
-      <td><span class="badge ${STATUS_BADGE_CLASS[r.status] || ''}">${STATUS_LABEL[r.status] || r.status}</span></td>
-      <td class="amount">${won(r.amount)}</td>
-      <td><div class="row-actions">${actions}</div></td>
-    `;
-    body.appendChild(tr);
-  });
-
-  body.querySelectorAll('[data-action="confirm"]').forEach(btn => {
-    btn.addEventListener('click', () => confirmTransfer(btn.dataset.id));
-  });
-  body.querySelectorAll('[data-action="cancel"]').forEach(btn => {
-    btn.addEventListener('click', () => cancelReservation(btn.dataset.id));
-  });
-}
-
-document.getElementById('boardDate').addEventListener('change', renderBoard);
-document.getElementById('boardSlot').addEventListener('change', renderBoard);
-document.getElementById('searchInput').addEventListener('input', renderTable);
-document.getElementById('filterHall').addEventListener('change', renderTable);
-document.getElementById('filterStatus').addEventListener('change', renderTable);
-
-const today = new Date();
-document.getElementById('boardDate').value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-renderStats();
-renderBoard();
-renderTable();
-</script>
-</body>
-</html>
+07
+결제 수단
+계좌 입금
+안내되는 계좌로 무통장 입금
+카드 결제
+준비 중이에요 (곧 열릴 예정)
+예약 요약
+시간대
+-
+홀
+-
+이용 시간
+-
+인원
+-
+기본 대관료
+-
+인원 추가요금
+-
+옵션
+-
+결제 수단
+-
+총 금액
+0원
+예약 신청하기
